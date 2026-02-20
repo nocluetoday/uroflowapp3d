@@ -1,8 +1,8 @@
 # UroFlow
 
 Urine flow simulation through the male prostatic urethra using:
-- FastAPI backend (`/simulate`)
-- React + Vite frontend
+- React + Vite frontend (standalone, no backend required)
+- Optional FastAPI backend (`/simulate`) if API deployment is needed
 - A phenomenological uroflow model that estimates `Q_max` and average flow velocity from:
   - detrusor pressure (`p_det`)
   - prostate length (`length`)
@@ -37,7 +37,7 @@ Backend will be available at:
 - `http://localhost:8000`
 - OpenAPI docs: `http://localhost:8000/docs`
 
-## Run Locally (Frontend)
+## Run Locally (Standalone App)
 
 From `frontend/`:
 
@@ -46,8 +46,10 @@ npm install
 npm run dev
 ```
 
-Frontend will run on Vite's default local URL and call:
-- `http://localhost:8000/simulate`
+Frontend runs entirely in-browser using the local simulation model in:
+- `frontend/src/simulation.js`
+
+No backend process is required for normal app usage.
 
 ## Run with Docker (Backend)
 

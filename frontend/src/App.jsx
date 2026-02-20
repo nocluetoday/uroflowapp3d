@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import './index.css';
+import { runSimulationLocal } from './simulation';
 
 function App() {
   const [pDet, setPdet] = useState(50);
@@ -7,40 +8,11 @@ function App() {
   const [volume, setVolume] = useState(40);
   const [ippGrade, setIppGrade] = useState(2);
 
-  const [loading, setLoading] = useState(false);
   const [results, setResults] = useState(null);
-  const [error, setError] = useState(null);
 
-  const runSimulation = async () => {
-    setLoading(true);
-    setError(null);
-
-    try {
-      // Connects directly to the backend API provided by docker or local instance
-      const response = await fetch('http://localhost:8000/simulate', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          p_det: parseFloat(pDet),
-          length: parseFloat(length),
-          volume: parseFloat(volume),
-          ipp_grade: parseInt(ippGrade)
-        })
-      });
-
-      if (!response.ok) {
-        throw new Error(`Error: ${response.statusText}`);
-      }
-
-      const data = await response.json();
-      setResults(data);
-    } catch (err) {
-      setError(err.message || "Failed to reach backend server. Did you run the docker container?");
-    } finally {
-      setLoading(false);
-    }
+  const runSimulation = () => {
+    const data = runSimulationLocal(pDet, length, volume, ippGrade);
+    setResults(data);
   };
 
   // Auto-run simulation on initial load
@@ -115,12 +87,9 @@ function App() {
         <button
           className="btn-primary"
           onClick={runSimulation}
-          disabled={loading}
         >
-          {loading ? <span className="spinner"></span> : 'Run Navier-Stokes Simulation'}
+          Run Local Simulation
         </button>
-
-        {error && <div style={{ color: '#ef4444', marginTop: '1rem', textAlign: 'center' }}>{error}</div>}
       </section>
 
       {/* Results Panel */}
@@ -159,7 +128,7 @@ function App() {
           ></div>
         </div>
         <p style={{ textAlign: 'center', margin: '1rem 0 0 0', color: 'var(--text-muted)', fontSize: '0.8rem' }}>
-          FEniCS Real-time 1D Collapsible Tube Profiling
+          Standalone in-browser 1D collapsible tube profiling
         </p>
 
       </section>
