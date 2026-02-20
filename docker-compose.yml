@@ -1,0 +1,14 @@
+version: '3.8'
+
+services:
+  urine_flow_sim:
+    build: .
+    ports:
+      - "8000:8000"
+    volumes:
+      - .:/app
+    environment:
+      - PYTHONUNBUFFERED=1
+    # Dolfinx uses MPI, but we're running it primarily sequentially here or via FastAPI.
+    # Uvicorn needs to be able to hot-reload inside docker if we mount the volume.
+    command: uvicorn main:app --host 0.0.0.0 --port 8000 --reload
