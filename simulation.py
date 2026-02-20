@@ -1,56 +1,53 @@
-import numpy as np
+import math
+
 
 def run_simulation(p_det: float, length: float, volume: float, ipp_grade: int) -> dict:
     """
-    Draft FEniCS Python script implementing the 1D collapsible tube law equations.
-    Currently a placeholder calculation using phenomenological models.
-    
-    Mathematical Framework:
-    - P_det = P_muo + 1/2 * rho * v^2
-    - Re = (rho * v * D) / mu  (turbulance via IPP)
-    - P_tm = P_f - P_ext = K * (A/A_0 - 1)
+    Phenomenological uroflow model with unit-correct Bernoulli velocity.
+
+    Key relations:
+    - Effective pressure after opening + IPP losses: P_eff = P_det - P_muo - dP_ipp
+    - Velocity from Bernoulli in cgs units: v = C_d * sqrt(2 * P_eff / rho) / R_obs
+    - Distensible lumen via collapsible tube law: A = A0 * (1 + P_tm / K)
+    - Q_max = A * v   (cm^3/s == mL/s)
     """
-    
-    # Constants
-    rho = 1.0  # density of urine approx 1 g/cm^3
-    p_muo = 20.0 # hypothetical minimum urethral opening pressure in cmH2O
-    
-    # Simple phenomenological model for demonstration
-    # 1. IPP Grade reduces effective driving pressure due to turbulence
-    ipp_pressure_drop = {
-        1: 0.0,
-        2: 5.0,
-        3: 15.0
-    }.get(ipp_grade, 0.0)
-    
+
+    # Clamp physically invalid inputs.
+    p_det = max(0.0, float(p_det))
+    length = max(0.1, float(length))
+    volume = max(0.1, float(volume))
+    ipp_grade = int(ipp_grade)
+
+    # cgs units keep Q in mL/s directly (cm^3/s).
+    rho_urine = 1.0  # g/cm^3
+    CMH2O_TO_DYN_PER_CM2 = 980.665
+
+    # Opening threshold and IPP-induced entry losses.
+    p_muo = 6.0
+    ipp_pressure_drop = {1: 1.0, 2: 3.5, 3: 7.0}.get(ipp_grade, 3.5)
     effective_p_det = max(0.0, p_det - p_muo - ipp_pressure_drop)
-    
-    # 2. Prostate size increases resistance (decreases velocity for a given pressure)
-    # Scaled to produce normal resistance around 1.5 for a healthy prostate (4cm, 30cc)
-    resistance_factor = 1.0 + 0.5 * (length / 4.0) * (volume / 30.0) 
-    
-    # 3. Calculate velocity using rearranged Bernoulli: v = sqrt(2 * P_eff / rho)
-    velocity = np.sqrt(max(0, 2 * effective_p_det / rho)) / resistance_factor
-    
-    # 4. Calculate Q_max (Flow rate = Area * Velocity)
-    # Area depends on the collapsible tube law: P_tm = K(A/A0 - 1)
-    A0 = 0.5 # resting cross-sectional area cm^2
-    K = 10.0 # specific elastance
-    
-    p_tm = effective_p_det / 2.0 
-    area = A0 * (1 + p_tm / K)
-    
-    # 5. Phenomenological Calibration Factor
-    # Aligns the placeholder math to real-world clinical baselines (Normal Qmax ~ 20-30 ml/s)
-    # so that values drop below 15cc/s only when obstructive parameters are met.
-    CLINICAL_CALIBRATION_FACTOR = 5.0
-    
-    velocity = velocity * CLINICAL_CALIBRATION_FACTOR
+
+    # Baseline urethral geometry and wall elastance.
+    baseline_diameter_cm = 0.28
+    area_0 = math.pi * (baseline_diameter_cm / 2.0) ** 2
+    wall_elastance_k = 24.0
+    p_tm = 0.45 * effective_p_det
+    area = max(0.28 * area_0, area_0 * (1.0 + p_tm / wall_elastance_k))
+
+    # Obstruction scales nonlinearly with gland size.
+    obstruction_index = (length / 4.0) ** 1.15 * (volume / 30.0) ** 0.65
+    resistance_factor = 1.0 + 0.22 * max(0.0, obstruction_index - 1.0)
+
+    # IPP shifts discharge coefficient (turbulence + vena contracta losses).
+    discharge_coeff = {1: 0.92, 2: 0.84, 3: 0.72}.get(ipp_grade, 0.84)
+
+    # Unit-correct Bernoulli velocity in cm/s.
+    delta_p = effective_p_det * CMH2O_TO_DYN_PER_CM2
+    velocity = discharge_coeff * math.sqrt((2.0 * delta_p) / rho_urine) / resistance_factor
     q_max = area * velocity
-    
-    # Return mock results
+
     return {
-        "q_max": round(q_max, 2),
-        "average_velocity": round(velocity, 2),
-        "p_det_used": p_det
+        "q_max": round(float(q_max), 2),
+        "average_velocity": round(float(velocity), 2),
+        "p_det_used": round(p_det, 2),
     }
