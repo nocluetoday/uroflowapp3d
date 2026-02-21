@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useReducer } from 'react';
 import { createUroflow3DJob, getUroflow3DJob } from '../api';
 
 const ACTIVE_JOB_STATUSES = new Set(['queued', 'running', 'submitting']);
@@ -10,36 +10,78 @@ const INITIAL_JOB_STATE = {
   artifacts: [],
 };
 
+const JOB_ACTIONS = {
+  CREATE_STARTED: 'create_started',
+  CREATE_SUCCEEDED: 'create_succeeded',
+  CREATE_FAILED: 'create_failed',
+  POLL_SUCCEEDED: 'poll_succeeded',
+  POLL_FAILED: 'poll_failed',
+};
+
 function errorMessage(error, fallback) {
   return error instanceof Error ? error.message : fallback;
 }
 
+function jobStateReducer(state, action) {
+  switch (action.type) {
+    case JOB_ACTIONS.CREATE_STARTED:
+      return { ...INITIAL_JOB_STATE, status: 'submitting' };
+    case JOB_ACTIONS.CREATE_SUCCEEDED:
+      return {
+        jobId: action.payload.jobId,
+        status: action.payload.status,
+        error: null,
+        artifacts: [],
+      };
+    case JOB_ACTIONS.CREATE_FAILED:
+      return {
+        ...INITIAL_JOB_STATE,
+        status: 'failed',
+        error: action.payload.error,
+      };
+    case JOB_ACTIONS.POLL_SUCCEEDED:
+      return {
+        ...state,
+        status: action.payload.status,
+        artifacts: action.payload.artifacts,
+        error: action.payload.error,
+      };
+    case JOB_ACTIONS.POLL_FAILED:
+      return {
+        ...state,
+        status: 'failed',
+        error: action.payload.error,
+      };
+    default:
+      return state;
+  }
+}
+
 export function use3DJobPolling({ apiBase, inputs, onResult, onBackendOnlineChange }) {
-  const [jobState, setJobState] = useState(INITIAL_JOB_STATE);
-  const [submitting3D, setSubmitting3D] = useState(false);
+  const [jobState, dispatch] = useReducer(jobStateReducer, INITIAL_JOB_STATE);
+  const submitting3D = jobState.status === 'submitting';
 
   const create3DJob = useCallback(async () => {
-    setSubmitting3D(true);
-    setJobState({ ...INITIAL_JOB_STATE, status: 'submitting' });
+    dispatch({ type: JOB_ACTIONS.CREATE_STARTED });
 
     try {
       const data = await createUroflow3DJob(apiBase, inputs);
-      setJobState({
-        jobId: data.job_id,
-        status: data.status,
-        error: null,
-        artifacts: [],
+      dispatch({
+        type: JOB_ACTIONS.CREATE_SUCCEEDED,
+        payload: {
+          jobId: data.job_id,
+          status: data.status,
+        },
       });
       onBackendOnlineChange?.(true);
     } catch (err) {
-      setJobState({
-        ...INITIAL_JOB_STATE,
-        status: 'failed',
-        error: errorMessage(err, 'Could not submit 3D job.'),
+      dispatch({
+        type: JOB_ACTIONS.CREATE_FAILED,
+        payload: {
+          error: errorMessage(err, 'Could not submit 3D job.'),
+        },
       });
       onBackendOnlineChange?.(false);
-    } finally {
-      setSubmitting3D(false);
     }
   }, [apiBase, inputs, onBackendOnlineChange]);
 
@@ -51,22 +93,25 @@ export function use3DJobPolling({ apiBase, inputs, onResult, onBackendOnlineChan
     const intervalId = setInterval(async () => {
       try {
         const data = await getUroflow3DJob(apiBase, jobState.jobId);
-        setJobState((prev) => ({
-          ...prev,
-          status: data.status,
-          artifacts: data.artifacts || [],
-          error: data.error || null,
-        }));
+        dispatch({
+          type: JOB_ACTIONS.POLL_SUCCEEDED,
+          payload: {
+            status: data.status,
+            artifacts: data.artifacts || [],
+            error: data.error || null,
+          },
+        });
 
         if (data.result) {
           onResult?.(data.result);
         }
       } catch (err) {
-        setJobState((prev) => ({
-          ...prev,
-          status: 'failed',
-          error: errorMessage(err, 'Could not poll 3D job.'),
-        }));
+        dispatch({
+          type: JOB_ACTIONS.POLL_FAILED,
+          payload: {
+            error: errorMessage(err, 'Could not poll 3D job.'),
+          },
+        });
       }
     }, 1200);
 
