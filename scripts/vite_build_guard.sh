@@ -5,6 +5,28 @@ set -euo pipefail
 # Prevent overlapping frontend builds, which can look like a hung Vite process.
 LOCK_DIR="${TMPDIR:-/tmp}/uroflow-vite-build.lock"
 PID_FILE="${LOCK_DIR}/pid"
+ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+
+prepare_esbuild_binary() {
+  local esbuild_src esbuild_cache_dir esbuild_dst
+  esbuild_src="${ROOT_DIR}/frontend/node_modules/@esbuild/darwin-arm64/bin/esbuild"
+  esbuild_cache_dir="${HOME}/Library/Caches/uroflow"
+  esbuild_dst="${esbuild_cache_dir}/esbuild-darwin-arm64"
+
+  if [[ ! -x "${esbuild_src}" ]]; then
+    return 0
+  fi
+
+  mkdir -p "${esbuild_cache_dir}"
+  if [[ ! -f "${esbuild_dst}" || "${esbuild_src}" -nt "${esbuild_dst}" ]]; then
+    cp -f "${esbuild_src}" "${esbuild_dst}"
+    chmod +x "${esbuild_dst}"
+  fi
+
+  # Running esbuild from iCloud-backed folders can hang at process start.
+  # Use a local cache path for predictable startup.
+  export ESBUILD_BINARY_PATH="${esbuild_dst}"
+}
 
 acquire_lock() {
   if mkdir "${LOCK_DIR}" 2>/dev/null; then
@@ -33,4 +55,5 @@ cleanup() {
 trap cleanup EXIT INT TERM HUP
 
 acquire_lock
+prepare_esbuild_binary
 vite build "$@"

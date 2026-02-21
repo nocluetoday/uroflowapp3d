@@ -17,7 +17,7 @@ fi
 
 cd "$ROOT_DIR"
 rm -rf build dist
-"$VENV_PY" -m PyInstaller --onefile --name uroflow-backend backend_entry.py
+"$VENV_PY" -m PyInstaller --noconfirm --onefile --name uroflow-backend backend_entry.py
 
 mkdir -p frontend/backend-bin
 cp dist/uroflow-backend frontend/backend-bin/uroflow-backend
