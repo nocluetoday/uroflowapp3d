@@ -6,8 +6,8 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "vite build",
-    "build:web": "vite build",
+    "build": "bash ../scripts/vite_build_guard.sh",
+    "build:web": "npm run build",
     "dev:desktop": "concurrently -k \"npm run dev -- --host 127.0.0.1 --port 5173\" \"wait-on tcp:5173 && ELECTRON_RENDERER_URL=http://127.0.0.1:5173 electron .\"",
     "build:backend:mac": "bash ../scripts/build_backend_binary.sh",
     "package:mac": "npm run build:web && npm run build:backend:mac && electron-builder --mac dmg",
@@ -17,8 +17,11 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@react-three/drei": "^10.7.7",
+    "@react-three/fiber": "^9.5.0",
     "react": "^19.2.0",
-    "react-dom": "^19.2.0"
+    "react-dom": "^19.2.0",
+    "three": "^0.183.1"
   },
   "devDependencies": {
     "@electron/packager": "^19.0.5",
