@@ -27,6 +27,7 @@ function toScalarPayload(payload) {
   return {
     p_det: Number(payload.p_det),
     length: totalUrethralLengthCm(payload),
+    prostatic_length: Number(payload.prostatic_length),
     volume: Number(payload.volume),
     ipp_grade: Number(payload.ipp_grade),
   };
@@ -36,6 +37,7 @@ function toJobPayload(inputs) {
   return {
     p_det: Number(inputs.p_det),
     length: totalUrethralLengthCm(inputs),
+    prostatic_length: Number(inputs.prostatic_length),
     volume: Number(inputs.volume),
     ipp_grade: Number(inputs.ipp_grade),
     mesh_resolution: Number(inputs.mesh_resolution),

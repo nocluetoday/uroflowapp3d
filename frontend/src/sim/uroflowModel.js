@@ -11,6 +11,10 @@ function round2(value) {
   return Math.round(value * 100) / 100;
 }
 
+function round3(value) {
+  return Math.round(value * 1000) / 1000;
+}
+
 export function totalUrethralLengthCm(inputs) {
   if (inputs && Number.isFinite(Number(inputs.length))) {
     return Math.max(0.1, Number(inputs.length));
@@ -25,35 +29,61 @@ export function totalUrethralLengthCm(inputs) {
 
 export function runLocalSimulation(payload) {
   const pDet = Math.max(0, asNumber(payload?.p_det, 0));
-  const length = Math.max(0.1, totalUrethralLengthCm(payload));
+  const totalLength = Math.max(0.1, totalUrethralLengthCm(payload));
   const volume = Math.max(0.1, asNumber(payload?.volume, 0));
   const ippGrade = clamp(Math.round(asNumber(payload?.ipp_grade, 2)), 1, 3);
 
-  const rhoUrine = 1.0;
-  const CMH2O_TO_DYN_PER_CM2 = 980.665;
+  const prostaticLength = asNumber(payload?.prostatic_length, 0);
+  const ldPuCm = prostaticLength > 0 ? clamp(prostaticLength, 2.0, 6.0) : clamp(0.16 * totalLength, 2.0, 6.0);
 
-  const pMuo = 6.0;
-  const ippPressureDrop = { 1: 1.0, 2: 3.5, 3: 7.0 }[ippGrade] ?? 3.5;
-  const effectivePDet = Math.max(0.0, pDet - pMuo - ippPressureDrop);
+  const tdBnCm = clamp(3.1 - 0.18 * (ippGrade - 1) - 0.0035 * (volume - 40.0), 2.2, 3.4);
+  const tdPuCm = clamp(
+    4.4 - 0.42 * (ippGrade - 1) - 0.2 * (ldPuCm - 3.8) - 0.012 * (volume - 40.0),
+    1.4,
+    4.8,
+  );
 
-  const baselineDiameterCm = 0.28;
-  const area0 = Math.PI * (baselineDiameterCm / 2.0) ** 2;
-  const wallElastanceK = 24.0;
-  const pTm = 0.45 * effectivePDet;
-  const area = Math.max(0.28 * area0, area0 * (1.0 + pTm / wallElastanceK));
+  const rpu1 = tdPuCm / tdBnCm;
+  const rpu2 = rpu1 / ldPuCm;
 
-  const obstructionIndex = (length / 24.5) ** 1.15 * (volume / 30.0) ** 0.65;
-  const resistanceFactor = 1.0 + 0.22 * Math.max(0.0, obstructionIndex - 1.0);
+  const rpu1Norm = clamp((rpu1 - 0.79) / (1.36 - 0.79), 0.0, 1.0);
+  const rpu2Norm = clamp((rpu2 - 0.02) / (0.038 - 0.02), 0.0, 1.0);
+  const vortexIndex = 0.5 * (rpu1Norm + rpu2Norm);
+  const vortexPresent = rpu1 > 0.79 && rpu2 > 0.02;
 
-  const dischargeCoeff = { 1: 0.92, 2: 0.84, 3: 0.72 }[ippGrade] ?? 0.84;
+  const pressureDrivePa = Math.max(300.0, pDet * 98.0665);
+  const lengthObstruction = (ldPuCm / 3.8) ** 1.7;
+  const ippObstruction = 1.0 + 0.65 * (ippGrade - 1);
+  const volumeObstruction = (volume / 40.0) ** 0.6;
+  const resistanceIndex = lengthObstruction * ippObstruction * volumeObstruction * (1.0 + 0.45 * vortexIndex);
 
-  const deltaP = effectivePDet * CMH2O_TO_DYN_PER_CM2;
-  const velocity = dischargeCoeff * Math.sqrt((2.0 * deltaP) / rhoUrine) / resistanceFactor;
-  const qMax = area * velocity;
+  const mvEuoTargetMps = clamp(3.16 - 0.08 * vortexIndex, 2.8, 3.18);
+  const mvEuoMps = mvEuoTargetMps * Math.sqrt(pressureDrivePa / (50.6 * 98.0665)) / Math.sqrt(resistanceIndex);
+
+  const baseQmax = 24.0 * Math.sqrt(pressureDrivePa / (50.6 * 98.0665));
+  let qMax = (baseQmax / (resistanceIndex ** 0.9)) * (1.02 - 0.12 * vortexIndex);
+  qMax = clamp(qMax, 2.0, 45.0);
+
+  const qaveRatio = clamp(0.76 - 0.14 * vortexIndex - 0.05 * (ippGrade - 1), 0.45, 0.78);
+  const qAve = qMax * qaveRatio;
+
+  const euoDiameterCm = 0.6;
+  const euoAreaCm2 = Math.PI * (euoDiameterCm / 2.0) ** 2;
+  const averageVelocity = qAve / euoAreaCm2;
+  const pressureLoss = pressureDrivePa * (1.0 - 1.0 / (1.0 + resistanceIndex));
 
   return {
     q_max: round2(qMax),
-    average_velocity: round2(velocity),
+    q_ave: round2(qAve),
+    average_velocity: round2(averageVelocity),
     p_det_used: round2(pDet),
+    rpu_1: round3(rpu1),
+    rpu_2: round3(rpu2),
+    mv_euo: round3(mvEuoMps),
+    vortex_present: vortexPresent,
+    td_bn: round2(tdBnCm),
+    td_pu: round2(tdPuCm),
+    ld_pu: round2(ldPuCm),
+    pressure_loss: round2(pressureLoss),
   };
 }

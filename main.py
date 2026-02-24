@@ -4,6 +4,7 @@ import threading
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timezone
 from pathlib import Path
+from typing import Optional
 from uuid import uuid4
 
 from fastapi import FastAPI, HTTPException
@@ -42,14 +43,24 @@ jobs = {}
 
 class SimulationRequest(BaseModel):
     p_det: float = Field(..., description="Detrusor Pressure (cmH2O)")
-    length: float = Field(..., description="Prostate Size Length (cm)")
+    length: float = Field(..., description="Total urethral length (cm)")
+    prostatic_length: Optional[float] = Field(None, description="Prostatic urethral length LD-PU (cm)")
     volume: float = Field(..., description="Prostate Size Volume (cc)")
     ipp_grade: int = Field(..., ge=1, le=3, description="Intravesical Prostatic Protrusion (IPP) Grade 1-3")
 
 class SimulationResponse(BaseModel):
     q_max: float = Field(..., description="Maximum flow rate (ml/s)")
+    q_ave: float = Field(..., description="Average flow rate over voiding profile (ml/s)")
     average_velocity: float = Field(..., description="Average flow velocity (cm/s)")
     p_det_used: float = Field(..., description="Detrusor pressure used (cmH2O)")
+    rpu_1: float = Field(..., description="RPU-1 ratio (TD-PU / TD-BN)")
+    rpu_2: float = Field(..., description="RPU-2 ratio (RPU-1 / LD-PU)")
+    mv_euo: float = Field(..., description="Midpoint velocity at external urethral orifice (m/s)")
+    vortex_present: bool = Field(..., description="Whether vortex is predicted in PU region")
+    td_bn: float = Field(..., description="Estimated transverse diameter of bladder neck (cm)")
+    td_pu: float = Field(..., description="Estimated transverse diameter of prostatic urethra (cm)")
+    ld_pu: float = Field(..., description="Estimated longitudinal diameter of prostatic urethra (cm)")
+    pressure_loss: float = Field(..., description="Estimated pressure loss through PU (Pa)")
 
 
 class Uroflow3DRequest(SimulationRequest):
@@ -73,9 +84,9 @@ class SimulationJobStatusResponse(BaseModel):
     created_at: str
     updated_at: str
     request: dict
-    result: dict | None = None
+    result: Optional[dict] = None
     artifacts: list[str] = Field(default_factory=list)
-    error: str | None = None
+    error: Optional[str] = None
 
 
 def utc_now_iso() -> str:
@@ -159,6 +170,7 @@ def run_3d_job(job_id: str, request_data: dict):
         result = run_simulation(
             p_det=request_data["p_det"],
             length=request_data["length"],
+            prostatic_length=request_data.get("prostatic_length"),
             volume=request_data["volume"],
             ipp_grade=request_data["ipp_grade"],
         )
@@ -209,6 +221,7 @@ def simulate_flow(request: SimulationRequest):
         result = run_simulation(
             p_det=request.p_det,
             length=request.length,
+            prostatic_length=request.prostatic_length,
             volume=request.volume,
             ipp_grade=request.ipp_grade
         )

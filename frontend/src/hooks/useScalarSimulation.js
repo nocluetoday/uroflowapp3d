@@ -19,7 +19,10 @@ export function useScalarSimulation({ apiBase }) {
     void simulate(apiBase, payload)
       .then((backendResult) => {
         if (backendResult && Number.isFinite(Number(backendResult.q_max))) {
-          setResults(backendResult);
+          setResults((previous) => ({
+            ...(previous || {}),
+            ...backendResult,
+          }));
         }
       })
       .catch(() => {

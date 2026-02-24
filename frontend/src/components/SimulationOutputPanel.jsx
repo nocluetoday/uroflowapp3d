@@ -15,15 +15,46 @@ export function SimulationOutputPanel({ apiBase, inputs, totalUrethralLength, re
           </h3>
         </article>
         <article>
-          <p>Avg Velocity</p>
+          <p>Q_ave</p>
           <h3>
-            {metric(results?.average_velocity)} <span>cm/s</span>
+            {metric(results?.q_ave)} <span>mL/s</span>
           </h3>
         </article>
         <article>
           <p>3D Job Status</p>
           <h3 className="mono">{jobState.status}</h3>
         </article>
+        <article>
+          <p>RPU-1</p>
+          <h3>{metric(results?.rpu_1)}</h3>
+        </article>
+        <article>
+          <p>RPU-2</p>
+          <h3>{metric(results?.rpu_2)}</h3>
+        </article>
+        <article>
+          <p>MV-EUO</p>
+          <h3>
+            {metric(results?.mv_euo)} <span>m/s</span>
+          </h3>
+        </article>
+        <article>
+          <p>PU Pressure Loss</p>
+          <h3>
+            {metric(results?.pressure_loss)} <span>Pa</span>
+          </h3>
+        </article>
+        <article>
+          <p>Vortex</p>
+          <h3 className="mono">
+            {typeof results?.vortex_present === 'boolean' ? (results.vortex_present ? 'present' : 'none') : '--'}
+          </h3>
+        </article>
+      </div>
+
+      <div className="ratio-definitions">
+        <p><strong>RPU-1</strong> = TD-PU / TD-BN</p>
+        <p><strong>RPU-2</strong> = RPU-1 / LD-PU</p>
       </div>
 
       <div className="scene-stage">
