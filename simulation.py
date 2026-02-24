@@ -6,11 +6,26 @@ def clamp(value: float, lower: float, upper: float) -> float:
     return max(lower, min(upper, value))
 
 
+def ipp_grade_from_mm(ipp_mm: Optional[float]) -> int:
+    if ipp_mm is None:
+        return 2
+
+    ipp_mm = max(0.0, float(ipp_mm))
+    if ipp_mm == 0.0:
+        return 0
+    if ipp_mm < 5.0:
+        return 1
+    if ipp_mm <= 10.0:
+        return 2
+    return 3
+
+
 def run_simulation(
     p_det: float,
     length: float,
     volume: float,
-    ipp_grade: int,
+    ipp_grade: Optional[int] = None,
+    ipp_mm: Optional[float] = None,
     prostatic_length: Optional[float] = None,
 ) -> dict:
     """
@@ -30,7 +45,14 @@ def run_simulation(
     p_det = max(0.0, float(p_det))
     length = max(0.1, float(length))
     volume = max(0.1, float(volume))
-    ipp_grade = int(clamp(float(ipp_grade), 1.0, 3.0))
+    if ipp_mm is not None:
+        ipp_mm = max(0.0, float(ipp_mm))
+        ipp_grade = ipp_grade_from_mm(ipp_mm)
+    elif ipp_grade is None:
+        ipp_grade = 2
+    else:
+        ipp_grade = int(clamp(float(ipp_grade), 0.0, 3.0))
+        ipp_mm = {0: 0.0, 1: 2.5, 2: 7.5, 3: 12.5}[ipp_grade]
 
     # Use explicit prostatic urethral length when provided by UI.
     if prostatic_length is None:
@@ -88,6 +110,8 @@ def run_simulation(
         "q_ave": round(float(q_ave), 2),
         "average_velocity": round(float(average_velocity), 2),
         "p_det_used": round(p_det, 2),
+        "ipp_grade_used": int(ipp_grade),
+        "ipp_mm_used": round(float(ipp_mm), 2),
         "rpu_1": round(float(rpu_1), 3),
         "rpu_2": round(float(rpu_2), 3),
         "mv_euo": round(float(mv_euo_mps), 3),

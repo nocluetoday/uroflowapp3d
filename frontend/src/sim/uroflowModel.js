@@ -15,6 +15,20 @@ function round3(value) {
   return Math.round(value * 1000) / 1000;
 }
 
+export function ippGradeFromMm(ippMmValue) {
+  const ippMm = Math.max(0, asNumber(ippMmValue, 0));
+  if (ippMm === 0) {
+    return 0;
+  }
+  if (ippMm < 5) {
+    return 1;
+  }
+  if (ippMm <= 10) {
+    return 2;
+  }
+  return 3;
+}
+
 export function totalUrethralLengthCm(inputs) {
   if (inputs && Number.isFinite(Number(inputs.length))) {
     return Math.max(0.1, Number(inputs.length));
@@ -31,7 +45,8 @@ export function runLocalSimulation(payload) {
   const pDet = Math.max(0, asNumber(payload?.p_det, 0));
   const totalLength = Math.max(0.1, totalUrethralLengthCm(payload));
   const volume = Math.max(0.1, asNumber(payload?.volume, 0));
-  const ippGrade = clamp(Math.round(asNumber(payload?.ipp_grade, 2)), 1, 3);
+  const ippMm = Math.max(0, asNumber(payload?.ipp_mm, 0));
+  const ippGrade = ippGradeFromMm(ippMm);
 
   const prostaticLength = asNumber(payload?.prostatic_length, 0);
   const ldPuCm = prostaticLength > 0 ? clamp(prostaticLength, 2.0, 6.0) : clamp(0.16 * totalLength, 2.0, 6.0);
@@ -77,6 +92,8 @@ export function runLocalSimulation(payload) {
     q_ave: round2(qAve),
     average_velocity: round2(averageVelocity),
     p_det_used: round2(pDet),
+    ipp_grade_used: ippGrade,
+    ipp_mm_used: round2(ippMm),
     rpu_1: round3(rpu1),
     rpu_2: round3(rpu2),
     mv_euo: round3(mvEuoMps),

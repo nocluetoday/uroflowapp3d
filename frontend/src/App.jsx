@@ -4,7 +4,7 @@ import { SimulationOutputPanel } from './components/SimulationOutputPanel';
 import { TopBar } from './components/TopBar';
 import { use3DJobPolling } from './hooks/use3DJobPolling';
 import { useScalarSimulation } from './hooks/useScalarSimulation';
-import { totalUrethralLengthCm } from './sim/uroflowModel';
+import { ippGradeFromMm, totalUrethralLengthCm } from './sim/uroflowModel';
 import './index.css';
 
 const API_BASE = 'http://127.0.0.1:8000';
@@ -16,7 +16,7 @@ const DEFAULT_INPUTS = {
   membranous_length: 1.5,
   prostatic_length: 3.5,
   volume: 40,
-  ipp_grade: 2,
+  ipp_mm: 5.0,
   mesh_resolution: 28,
   showBladderPhantom: true,
   showProstatePhantom: true,
@@ -34,12 +34,14 @@ function App() {
   const [inputs, setInputs] = useState(DEFAULT_INPUTS);
 
   const totalUrethralLength = useMemo(() => totalUrethralLengthCm(inputs), [inputs]);
+  const ippGrade = useMemo(() => ippGradeFromMm(inputs.ipp_mm), [inputs.ipp_mm]);
   const scalarPayload = useMemo(
     () => ({
       ...inputs,
+      ipp_grade: ippGrade,
       length: totalUrethralLength,
     }),
-    [inputs, totalUrethralLength],
+    [inputs, ippGrade, totalUrethralLength],
   );
 
   const { loading, results, error, runSimulation, applyResult } = useScalarSimulation({
@@ -76,6 +78,7 @@ function App() {
       <main className="workspace">
         <SimulationControlsPanel
           inputs={inputs}
+          derivedIppGrade={ippGrade}
           totalUrethralLength={totalUrethralLength}
           onInputChange={updateInput}
           onRunScalar={runCurrentSimulation}
@@ -87,7 +90,7 @@ function App() {
         />
         <SimulationOutputPanel
           apiBase={API_BASE}
-          inputs={inputs}
+          inputs={scalarPayload}
           totalUrethralLength={totalUrethralLength}
           results={results}
           jobState={jobState}

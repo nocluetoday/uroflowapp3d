@@ -11,7 +11,7 @@ from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
-from simulation import run_simulation
+from simulation import ipp_grade_from_mm, run_simulation
 import logging
 
 app = FastAPI(
@@ -46,13 +46,25 @@ class SimulationRequest(BaseModel):
     length: float = Field(..., description="Total urethral length (cm)")
     prostatic_length: Optional[float] = Field(None, description="Prostatic urethral length LD-PU (cm)")
     volume: float = Field(..., description="Prostate Size Volume (cc)")
-    ipp_grade: int = Field(..., ge=1, le=3, description="Intravesical Prostatic Protrusion (IPP) Grade 1-3")
+    ipp_grade: Optional[int] = Field(
+        None,
+        ge=0,
+        le=3,
+        description="Intravesical Prostatic Protrusion (IPP) Grade 0-3. Ignored if ipp_mm is provided.",
+    )
+    ipp_mm: Optional[float] = Field(
+        None,
+        ge=0,
+        description="Intravesical Prostatic Protrusion (IPP) in millimeters. Used to auto-assign grade.",
+    )
 
 class SimulationResponse(BaseModel):
     q_max: float = Field(..., description="Maximum flow rate (ml/s)")
     q_ave: float = Field(..., description="Average flow rate over voiding profile (ml/s)")
     average_velocity: float = Field(..., description="Average flow velocity (cm/s)")
     p_det_used: float = Field(..., description="Detrusor pressure used (cmH2O)")
+    ipp_grade_used: int = Field(..., description="IPP grade used by model (0-3)")
+    ipp_mm_used: float = Field(..., description="IPP value used by model (mm)")
     rpu_1: float = Field(..., description="RPU-1 ratio (TD-PU / TD-BN)")
     rpu_2: float = Field(..., description="RPU-2 ratio (RPU-1 / LD-PU)")
     mv_euo: float = Field(..., description="Midpoint velocity at external urethral orifice (m/s)")
@@ -93,6 +105,14 @@ def utc_now_iso() -> str:
     return datetime.now(timezone.utc).isoformat()
 
 
+def resolve_ipp_grade(ipp_grade: Optional[int], ipp_mm: Optional[float]) -> int:
+    if ipp_mm is not None:
+        return ipp_grade_from_mm(ipp_mm)
+    if ipp_grade is None:
+        return 2
+    return int(max(0, min(3, ipp_grade)))
+
+
 def set_job_state(job_id: str, **updates):
     with jobs_lock:
         current = jobs[job_id]
@@ -118,7 +138,7 @@ def build_proxy_vtk_artifact(out_path: Path, request_data: dict, sim_result: dic
     dy = (2.0 * radius_cm) / max(1, ny - 1)
     dz = (2.0 * radius_cm) / max(1, nz - 1)
 
-    ipp_entry_loss = {1: 1.0, 2: 3.5, 3: 7.0}.get(int(request_data["ipp_grade"]), 3.5)
+    ipp_entry_loss = {0: 0.0, 1: 1.0, 2: 3.5, 3: 7.0}.get(int(request_data.get("ipp_grade", 2)), 3.5)
     p_inlet = float(sim_result["p_det_used"])
     p_outlet = max(0.0, p_inlet * 0.25)
     v_mean = float(sim_result["average_velocity"])
@@ -172,7 +192,8 @@ def run_3d_job(job_id: str, request_data: dict):
             length=request_data["length"],
             prostatic_length=request_data.get("prostatic_length"),
             volume=request_data["volume"],
-            ipp_grade=request_data["ipp_grade"],
+            ipp_grade=request_data.get("ipp_grade"),
+            ipp_mm=request_data.get("ipp_mm"),
         )
 
         job_dir = ARTIFACTS_DIR / job_id
@@ -223,7 +244,8 @@ def simulate_flow(request: SimulationRequest):
             length=request.length,
             prostatic_length=request.prostatic_length,
             volume=request.volume,
-            ipp_grade=request.ipp_grade
+            ipp_grade=request.ipp_grade,
+            ipp_mm=request.ipp_mm,
         )
         return result
     except Exception as e:
@@ -236,6 +258,9 @@ def create_uroflow_3d_job(request: Uroflow3DRequest):
     job_id = str(uuid4())
     now = utc_now_iso()
     request_data = request.model_dump()
+    request_data["ipp_grade"] = resolve_ipp_grade(request.ipp_grade, request.ipp_mm)
+    if request_data.get("ipp_mm") is None:
+        request_data["ipp_mm"] = {0: 0.0, 1: 2.5, 2: 7.5, 3: 12.5}[request_data["ipp_grade"]]
 
     with jobs_lock:
         jobs[job_id] = {

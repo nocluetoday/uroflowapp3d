@@ -20,7 +20,7 @@ Outputs are model-derived estimates intended for simulation exploration.
   - pendulous + bulbar + membranous + prostatic
 - Obstruction-sensitive outputs with stronger dependence on:
   - prostatic urethral length
-  - intravesical prostatic protrusion (IPP) grade
+  - intravesical prostatic protrusion (IPP, mm -> auto grade)
 - 3D lumen scene with optional bladder/prostate phantom shells
 - Optional asynchronous 3D artifact export (`field.vtk`, `metadata.json`)
 - Desktop-safe behavior when backend is unavailable:
@@ -66,7 +66,8 @@ Current slider ranges in UI:
 - Membranous urethra: `0.6..3.0 cm`
 - Prostatic urethra: `2.0..6.0 cm`
 - Prostate volume: `10..150 cc`
-- IPP grade: `1..3`
+- IPP (mm): `0.0..20.0`
+- Auto-assigned IPP grade: `0..3` (`0` none, `1` <5 mm, `2` 5-10 mm, `3` >10 mm)
 - 3D mesh resolution: `12..64`
 
 Derived total length:
@@ -95,7 +96,11 @@ Notation:
 p_det   = max(0, p_det)
 length  = max(0.1, length)
 volume  = max(0.1, volume)
-IPP     = clamp(round(ipp_grade), 1, 3)
+IPP_mm  = max(0, ipp_mm)
+IPP     = 0 if IPP_mm == 0
+          1 if 0 < IPP_mm < 5
+          2 if 5 <= IPP_mm <= 10
+          3 if IPP_mm > 10
 ```
 
 If `prostatic_length` is explicitly provided by UI:
@@ -218,6 +223,8 @@ Returned keys and units:
 - `q_ave` (`mL/s`)
 - `average_velocity` (`cm/s`) - animation proxy, not primary clinical endpoint
 - `p_det_used` (`cmH2O`)
+- `ipp_grade_used` (`0..3`)
+- `ipp_mm_used` (`mm`)
 - `rpu_1` (dimensionless)
 - `rpu_2` (`1/cm`)
 - `mv_euo` (`m/s`)
@@ -260,7 +267,7 @@ Request body:
   "length": 24.5,
   "prostatic_length": 4.2,
   "volume": 75,
-  "ipp_grade": 3
+  "ipp_mm": 11.0
 }
 ```
 
@@ -272,6 +279,8 @@ Response body (shape):
   "q_ave": 3.87,
   "average_velocity": 13.69,
   "p_det_used": 60.0,
+  "ipp_grade_used": 3,
+  "ipp_mm_used": 11.0,
   "rpu_1": 0.792,
   "rpu_2": 0.189,
   "mv_euo": 2.945,
@@ -406,7 +415,7 @@ Recent checks performed in development:
 - Frontend production build succeeds (`npm run build`)
 - Directional behavior checks:
   - increasing prostatic urethral length reduces `Q_max` / `Q_ave`
-  - increasing IPP grade reduces `Q_max` / `Q_ave`
+  - increasing IPP mm (and therefore grade) reduces `Q_max` / `Q_ave`
 
 For stronger scientific confidence, add formal calibration datasets and regression tests against known case series.
 

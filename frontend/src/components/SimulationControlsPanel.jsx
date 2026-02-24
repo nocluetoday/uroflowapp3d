@@ -29,6 +29,7 @@ function ToggleControl({ label, checked, onChange }) {
 
 export function SimulationControlsPanel({
   inputs,
+  derivedIppGrade,
   totalUrethralLength,
   onInputChange,
   onRunScalar,
@@ -108,14 +109,18 @@ export function SimulationControlsPanel({
       />
 
       <SliderControl
-        label="IPP Grade"
-        valueLabel={inputs.ipp_grade}
-        value={inputs.ipp_grade}
-        min="1"
-        max="3"
-        step="1"
-        onChange={(e) => onInputChange('ipp_grade', Number(e.target.value))}
+        label="IPP (Intravesical Protrusion)"
+        valueLabel={`${inputs.ipp_mm.toFixed(1)} mm`}
+        value={inputs.ipp_mm}
+        min="0"
+        max="20"
+        step="0.1"
+        onChange={(e) => onInputChange('ipp_mm', Number(e.target.value))}
       />
+
+      <div className="anatomy-summary">
+        Auto IPP Grade = <strong>{derivedIppGrade}</strong> (0: 0 mm, 1: &gt;0 to &lt;5 mm, 2: 5-10 mm, 3: &gt;10 mm)
+      </div>
 
       <SliderControl
         label="3D Mesh Resolution"

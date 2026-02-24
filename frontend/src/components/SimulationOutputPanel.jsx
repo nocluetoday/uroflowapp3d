@@ -4,6 +4,10 @@ function metric(value) {
   return Number.isFinite(Number(value)) ? Number(value).toFixed(2) : '--';
 }
 
+function wholeMetric(value) {
+  return Number.isFinite(Number(value)) ? String(Math.round(Number(value))) : '--';
+}
+
 export function SimulationOutputPanel({ apiBase, inputs, totalUrethralLength, results, jobState }) {
   return (
     <section className="panel output-panel">
@@ -27,6 +31,10 @@ export function SimulationOutputPanel({ apiBase, inputs, totalUrethralLength, re
         <article>
           <p>RPU-1</p>
           <h3>{metric(results?.rpu_1)}</h3>
+        </article>
+        <article>
+          <p>IPP Grade Used</p>
+          <h3>{wholeMetric(results?.ipp_grade_used)}</h3>
         </article>
         <article>
           <p>RPU-2</p>

@@ -1,4 +1,4 @@
-import { totalUrethralLengthCm } from './sim/uroflowModel';
+import { ippGradeFromMm, totalUrethralLengthCm } from './sim/uroflowModel';
 
 function withJsonHeaders(init = {}) {
   return {
@@ -24,22 +24,34 @@ async function requestJson(apiBase, path, { method = 'GET', body, errorPrefix = 
 }
 
 function toScalarPayload(payload) {
+  const ippMm = Number(payload.ipp_mm);
+  const ippGrade = Number.isFinite(Number(payload.ipp_grade))
+    ? Number(payload.ipp_grade)
+    : ippGradeFromMm(ippMm);
+
   return {
     p_det: Number(payload.p_det),
     length: totalUrethralLengthCm(payload),
     prostatic_length: Number(payload.prostatic_length),
     volume: Number(payload.volume),
-    ipp_grade: Number(payload.ipp_grade),
+    ipp_grade: ippGrade,
+    ipp_mm: ippMm,
   };
 }
 
 function toJobPayload(inputs) {
+  const ippMm = Number(inputs.ipp_mm);
+  const ippGrade = Number.isFinite(Number(inputs.ipp_grade))
+    ? Number(inputs.ipp_grade)
+    : ippGradeFromMm(ippMm);
+
   return {
     p_det: Number(inputs.p_det),
     length: totalUrethralLengthCm(inputs),
     prostatic_length: Number(inputs.prostatic_length),
     volume: Number(inputs.volume),
-    ipp_grade: Number(inputs.ipp_grade),
+    ipp_grade: ippGrade,
+    ipp_mm: ippMm,
     mesh_resolution: Number(inputs.mesh_resolution),
   };
 }
