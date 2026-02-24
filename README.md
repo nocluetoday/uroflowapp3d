@@ -1,200 +1,298 @@
-# UroFlow
+# UroFlow Workbench (3D)
 
-Urine flow simulation through the male prostatic urethra using:
-- FastAPI backend (`/simulate`)
-- React + Vite frontend
-- A phenomenological uroflow model that estimates `Q_max` and average flow velocity from:
-  - detrusor pressure (`p_det`)
-  - prostate length (`length`)
-  - prostate volume (`volume`)
-  - IPP grade (`ipp_grade`)
+Clinical/engineering workbench for real-time uroflow estimation with an anatomical 3D scene.
 
-## Project Structure
+The app combines:
+- A FastAPI backend (`/simulate`, `/jobs/uroflow3d`)
+- A React + Vite + React Three Fiber frontend
+- An Electron desktop shell for macOS packaging (`.app` / `.dmg`)
+- A paper-informed scalar obstruction model with local fallback in the UI
 
-- `main.py`: FastAPI app and `/simulate` endpoint
-- `simulation.py`: uroflow simulation model
-- `frontend/`: React frontend
-- `Dockerfile`, `docker-compose.yml`: containerized backend setup
+## Important Scope
 
-## Requirements
+This project is a research/engineering prototype and **not** a diagnostic medical device.
+Outputs are model-derived estimates intended for simulation exploration.
 
-- Python 3.11+ (local backend run)
-- Node.js 18+ and npm (frontend run)
-- Docker Desktop (optional, for containerized backend)
-- macOS (for desktop packaging workflow)
+## Feature Summary
 
-## Standalone macOS App (Desktop)
+- Real-time scalar outputs while sliders move
+- Anatomical urethral length decomposition:
+  - pendulous + bulbar + membranous + prostatic
+- Obstruction-sensitive outputs with stronger dependence on:
+  - prostatic urethral length
+  - intravesical prostatic protrusion (IPP) grade
+- 3D lumen scene with optional bladder/prostate phantom shells
+- Optional asynchronous 3D artifact export (`field.vtk`, `metadata.json`)
+- Desktop-safe behavior when backend is unavailable:
+  - scalar model still runs locally in frontend
+  - UI remains interactive
 
-This repo now includes a desktop shell (Electron) that launches the backend automatically.
+## Repository Layout
 
-### Run Desktop App in Development
+- `main.py` - FastAPI app, scalar endpoint, async 3D job orchestration
+- `simulation.py` - Python scalar uroflow model
+- `backend_entry.py` - backend process entrypoint for packaged desktop app
+- `frontend/src/sim/uroflowModel.js` - mirrored local scalar model used by UI fallback
+- `frontend/src/UroflowScene.jsx` - interactive 3D rendering
+- `frontend/src/components/SimulationControlsPanel.jsx` - sliders/toggles/actions
+- `frontend/src/components/SimulationOutputPanel.jsx` - metrics, definitions, artifacts panel
+- `scripts/build_backend_binary.sh` - PyInstaller build for backend binary
+- `scripts/vite_build_guard.sh` - guarded Vite build helper
 
-From `frontend/`:
+## Tech Stack
 
-```bash
-npm install
-npm run dev:desktop
+Backend:
+- Python 3.11+
+- FastAPI
+- Uvicorn
+- Pydantic
+
+Frontend:
+- React 19
+- Vite 7
+- Three.js + @react-three/fiber + @react-three/drei
+
+Desktop:
+- Electron
+- electron-builder / electron-packager
+- PyInstaller (bundled backend binary)
+
+## Clinical Inputs and Ranges
+
+Current slider ranges in UI:
+- Detrusor pressure: `10..150 cmH2O`
+- Pendulous urethra: `8.0..22.0 cm`
+- Bulbar urethra: `1.5..7.0 cm`
+- Membranous urethra: `0.6..3.0 cm`
+- Prostatic urethra: `2.0..6.0 cm`
+- Prostate volume: `10..150 cc`
+- IPP grade: `1..3`
+- 3D mesh resolution: `12..64`
+
+Derived total length:
+
+`total_urethral_length = pendulous + bulbar + membranous + prostatic`
+
+## Scalar Model (Current Implementation)
+
+Implemented in:
+- `simulation.py`
+- `frontend/src/sim/uroflowModel.js`
+
+### Geometry proxies and ratios
+
+- `TD-BN` = transverse diameter of bladder neck (cm)
+- `TD-PU` = transverse diameter of prostatic urethra (cm)
+- `LD-PU` = longitudinal (prostatic urethral) length (cm)
+
+Defined ratios:
+- `RPU-1 = TD-PU / TD-BN`
+- `RPU-2 = RPU-1 / LD-PU`
+
+### Obstruction behavior
+
+Model resistance increases with:
+- longer `LD-PU`
+- higher `IPP grade`
+- larger prostate volume
+- higher vortex index (ratio-derived)
+
+This resistance index then reduces `Q_max` and `Q_ave`.
+
+### Primary outputs
+
+- `q_max` (mL/s)
+- `q_ave` (mL/s)
+- `average_velocity` (cm/s, internal rendering proxy)
+- `rpu_1`, `rpu_2`
+- `mv_euo` (m/s)
+- `vortex_present` (boolean)
+- `td_bn`, `td_pu`, `ld_pu` (cm)
+- `pressure_loss` (Pa)
+
+## Literature Basis (Informing, Not Clinical Validation)
+
+Model structure is informed by these papers:
+- Zhang et al. (Scientific Reports, 2021) - PU geometry ratios and vortex-associated trends
+- Ishii et al. (IEEE JTEHM, 2014) - fluid property assumptions and pressure-loss framing
+
+Current code uses these publications as directional constraints/trends, not as a full patient-specific CFD implementation.
+
+## API Reference
+
+### Health/root
+
+- `GET /`
+
+### Run scalar simulation
+
+- `POST /simulate`
+
+Request body:
+
+```json
+{
+  "p_det": 60,
+  "length": 24.5,
+  "prostatic_length": 4.2,
+  "volume": 75,
+  "ipp_grade": 3
+}
 ```
 
-This starts:
-- Vite renderer on `127.0.0.1:5173`
-- FastAPI backend on `127.0.0.1:8000` (auto-launched by Electron)
+Response body (shape):
 
-### Build a Standalone macOS `.dmg`
-
-1. Build the backend binary (PyInstaller) and package desktop app:
-
-```bash
-cd frontend
-npm run package:mac
+```json
+{
+  "q_max": 7.12,
+  "q_ave": 3.87,
+  "average_velocity": 13.69,
+  "p_det_used": 60.0,
+  "rpu_1": 0.792,
+  "rpu_2": 0.189,
+  "mv_euo": 2.945,
+  "vortex_present": true,
+  "td_bn": 2.67,
+  "td_pu": 2.12,
+  "ld_pu": 4.2,
+  "pressure_loss": 4321.5
+}
 ```
 
-2. Output artifact:
-- `frontend/dist/*.dmg`
+### Create async 3D artifact job
 
-Notes:
-- Backend binary is created at `frontend/backend-bin/uroflow-backend`.
-- Packaging uses `scripts/build_backend_binary.sh`.
+- `POST /jobs/uroflow3d`
 
-### Fallback: Build Standalone `.app` (if DMG build is killed)
+Request includes scalar fields plus:
+- `mesh_resolution`
 
-If `electron-builder` is terminated by macOS (`zsh: killed`), use the lighter packaging path:
+### Poll async 3D job
 
-```bash
-cd frontend
-npm run package:app:mac
-```
+- `GET /jobs/{job_id}`
 
-Output:
-- `frontend/release/UroFlow-darwin-arm64/UroFlow.app`
+When complete, artifacts are available under:
+- `/artifacts/{job_id}/field.vtk`
+- `/artifacts/{job_id}/metadata.json`
 
-Optional zip for distribution:
+## Local Development
+
+### 1) Backend
 
 ```bash
-cd frontend
-npm run zip:app:mac
-```
-
-Output:
-- `frontend/release/UroFlow-darwin-arm64/UroFlow.app.zip`
-
-## Run Locally (Backend)
-
-From project root:
-
-```bash
+cd "/Users/donaldneff/Documents/Urine flow sim"
 python3 -m venv venv
 source venv/bin/activate
 pip install -r requirements.txt
-uvicorn main:app --reload --host 0.0.0.0 --port 8000
+uvicorn main:app --reload --host 127.0.0.1 --port 8000
 ```
 
-Backend will be available at:
-- `http://localhost:8000`
-- OpenAPI docs: `http://localhost:8000/docs`
+Open API docs:
+- `http://127.0.0.1:8000/docs`
 
-### 3D Job Endpoints (Phase 1)
-
-The backend now includes asynchronous 3D job endpoints to support future true CFD/FSI workflows:
-
-- `POST /jobs/uroflow3d`: enqueue a 3D simulation job
-- `GET /jobs/{job_id}`: check job state and artifact links
-- `GET /artifacts/{job_id}/field.vtk`: download generated 3D field artifact
-
-Current phase:
-- Outputs a VTK field artifact (`field.vtk`) using a proxy field model.
-- This is an integration bridge for renderer/job plumbing, not a full Navier-Stokes solve yet.
-
-## Run Locally (Frontend)
-
-From `frontend/`:
+### 2) Frontend (web)
 
 ```bash
+cd "/Users/donaldneff/Documents/Urine flow sim/frontend"
 npm install
 npm run dev
 ```
 
-Frontend will run on Vite's default local URL and call:
-- `http://localhost:8000/simulate`
-
-## Run with Docker (Backend)
-
-From project root:
+### 3) Desktop dev (Electron + backend autostart)
 
 ```bash
-docker compose up --build
+cd "/Users/donaldneff/Documents/Urine flow sim/frontend"
+npm install
+npm run dev:desktop
 ```
 
-The backend will be exposed on `http://localhost:8000`.
+## Build macOS App / DMG
 
-## API Usage
-
-Endpoint:
-- `POST /simulate`
-
-Example request:
+From repo root, ensure Python venv exists and backend dependencies are installed.
 
 ```bash
-curl -X POST http://localhost:8000/simulate \
-  -H "Content-Type: application/json" \
-  -d '{
-    "p_det": 50,
-    "length": 4.5,
-    "volume": 40,
-    "ipp_grade": 2
-  }'
+cd "/Users/donaldneff/Documents/Urine flow sim/frontend"
+npm install
+npm run package:mac
 ```
 
-Example response:
+Typical output:
+- `frontend/dist/UroFlow-<version>-arm64.dmg`
 
-```json
-{
-  "q_max": 23.67,
-  "average_velocity": 218.46,
-  "p_det_used": 50.0
-}
-```
-
-## 3D Job API Example
-
-Create a job:
+Fallback if DMG step is terminated by macOS:
 
 ```bash
-curl -X POST http://localhost:8000/jobs/uroflow3d \
-  -H "Content-Type: application/json" \
-  -d '{
-    "p_det": 50,
-    "length": 4.5,
-    "volume": 40,
-    "ipp_grade": 2,
-    "mesh_resolution": 28
-  }'
+cd "/Users/donaldneff/Documents/Urine flow sim/frontend"
+npm run package:app:mac
+npm run zip:app:mac
 ```
 
-Sample create response:
+Outputs:
+- `frontend/release/UroFlow-darwin-arm64/UroFlow.app`
+- `frontend/release/UroFlow-darwin-arm64/UroFlow.app.zip`
 
-```json
-{
-  "job_id": "b04e4f2f-6383-4251-b9b1-4e11d6fb78d5",
-  "status": "queued",
-  "created_at": "2026-02-20T23:00:00.000000+00:00"
-}
-```
+## How the Desktop App Boots
 
-Then poll status:
+- Electron starts first
+- Electron launches backend process:
+  - dev mode: `uvicorn main:app` from repo root
+  - packaged mode: bundled `uroflow-backend` binary from app resources
+- Renderer loads:
+  - dev URL (`ELECTRON_RENDERER_URL`) in development
+  - built `dist/index.html` in packaged mode
+
+## Troubleshooting
+
+### White screen in desktop app
+
+Check these first:
+- Frontend not built (`frontend/dist/index.html` missing)
+- `electron` cannot load renderer URL in dev mode
+- JS runtime error in renderer startup
+
+Actions:
 
 ```bash
-curl http://localhost:8000/jobs/<job_id>
+cd "/Users/donaldneff/Documents/Urine flow sim/frontend"
+npm run build
+npm run dev:desktop
 ```
 
-When `status` is `completed`, use `artifacts` URLs to fetch the VTK field for rendering.
+### Backend binary missing in packaged app
 
-## Notes
+Rebuild backend and package again:
 
-- `q_max` is reported in mL/s.
-- `average_velocity` is reported in cm/s.
-- This is a simplified phenomenological model, not a full CFD/FSI solver.
+```bash
+cd "/Users/donaldneff/Documents/Urine flow sim/frontend"
+npm run build:backend:mac
+npm run package:mac
+```
+
+### Frontend build appears to hang
+
+The build guard script (`scripts/vite_build_guard.sh`) prevents overlapping builds and copies esbuild binary to local cache when needed.
+Retry with a clean single build process.
+
+### 3D artifacts unavailable
+
+The 3D view still renders locally. Artifact export requires reachable backend job endpoints.
+
+## Validation Notes
+
+Recent checks performed in development:
+- Frontend production build succeeds (`npm run build`)
+- Directional behavior checks:
+  - increasing prostatic urethral length reduces `Q_max` / `Q_ave`
+  - increasing IPP grade reduces `Q_max` / `Q_ave`
+
+For stronger scientific confidence, add formal calibration datasets and regression tests against known case series.
+
+## Next Engineering Steps
+
+- Add golden-case tests for monotonicity and numeric ranges
+- Version the scalar model coefficients and document change logs
+- Add reproducible calibration notebook for published cohorts
+- Optionally offload heavy 3D field generation to GPU when true CFD is introduced
 
 ## License
 
-This project is licensed under the MIT License. See `LICENSE`.
+MIT License. See `LICENSE`.
