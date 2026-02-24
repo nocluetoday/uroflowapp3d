@@ -1,3 +1,5 @@
+import { totalUrethralLengthCm } from './sim/uroflowModel';
+
 function withJsonHeaders(init = {}) {
   return {
     ...init,
@@ -24,7 +26,7 @@ async function requestJson(apiBase, path, { method = 'GET', body, errorPrefix = 
 function toScalarPayload(payload) {
   return {
     p_det: Number(payload.p_det),
-    length: Number(payload.length),
+    length: totalUrethralLengthCm(payload),
     volume: Number(payload.volume),
     ipp_grade: Number(payload.ipp_grade),
   };
@@ -33,7 +35,7 @@ function toScalarPayload(payload) {
 function toJobPayload(inputs) {
   return {
     p_det: Number(inputs.p_det),
-    length: Number(inputs.length),
+    length: totalUrethralLengthCm(inputs),
     volume: Number(inputs.volume),
     ipp_grade: Number(inputs.ipp_grade),
     mesh_resolution: Number(inputs.mesh_resolution),

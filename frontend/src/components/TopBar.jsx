@@ -1,13 +1,9 @@
-export function TopBar({ backendOnline }) {
+export function TopBar() {
   return (
     <header className="topbar">
       <div>
         <h1>UroFlow Workbench</h1>
-        <p>Clinical sliders, scalar metrics, and a live 3D lumen view.</p>
-      </div>
-      <div className={`status-pill ${backendOnline ? 'online' : 'offline'}`}>
-        <span className="dot"></span>
-        {backendOnline ? 'Backend Connected' : 'Backend Unreachable'}
+        <p>Real-time scalar flow metrics with anatomical 3D bladder, prostate, and urethral lumen.</p>
       </div>
     </header>
   );

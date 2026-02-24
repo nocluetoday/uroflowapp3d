@@ -18,8 +18,18 @@ function SliderControl({
   );
 }
 
+function ToggleControl({ label, checked, onChange }) {
+  return (
+    <label className="toggle-row">
+      <span>{label}</span>
+      <input type="checkbox" checked={checked} onChange={onChange} />
+    </label>
+  );
+}
+
 export function SimulationControlsPanel({
   inputs,
+  totalUrethralLength,
   onInputChange,
   onRunScalar,
   onCreate3DJob,
@@ -31,7 +41,7 @@ export function SimulationControlsPanel({
   return (
     <section className="panel controls-panel">
       <h2>Simulation Inputs</h2>
-      <p className="panel-subtitle">Tune physiology and obstruction parameters.</p>
+      <p className="panel-subtitle">Anatomical length segments, obstruction parameters, and 3D controls.</p>
 
       <SliderControl
         label="Detrusor Pressure"
@@ -44,14 +54,48 @@ export function SimulationControlsPanel({
       />
 
       <SliderControl
-        label="Prostate Length"
-        valueLabel={`${inputs.length.toFixed(1)} cm`}
-        value={inputs.length}
-        min="2"
-        max="8"
+        label="Pendulous Urethra"
+        valueLabel={`${inputs.pendulous_length.toFixed(1)} cm`}
+        value={inputs.pendulous_length}
+        min="8"
+        max="22"
         step="0.1"
-        onChange={(e) => onInputChange('length', Number(e.target.value))}
+        onChange={(e) => onInputChange('pendulous_length', Number(e.target.value))}
       />
+
+      <SliderControl
+        label="Bulbar Urethra"
+        valueLabel={`${inputs.bulbar_length.toFixed(1)} cm`}
+        value={inputs.bulbar_length}
+        min="1.5"
+        max="7"
+        step="0.1"
+        onChange={(e) => onInputChange('bulbar_length', Number(e.target.value))}
+      />
+
+      <SliderControl
+        label="Membranous Urethra"
+        valueLabel={`${inputs.membranous_length.toFixed(1)} cm`}
+        value={inputs.membranous_length}
+        min="0.6"
+        max="3"
+        step="0.1"
+        onChange={(e) => onInputChange('membranous_length', Number(e.target.value))}
+      />
+
+      <SliderControl
+        label="Prostatic Urethra"
+        valueLabel={`${inputs.prostatic_length.toFixed(1)} cm`}
+        value={inputs.prostatic_length}
+        min="2"
+        max="6"
+        step="0.1"
+        onChange={(e) => onInputChange('prostatic_length', Number(e.target.value))}
+      />
+
+      <div className="anatomy-summary">
+        Total Urethral Length = pendulous + bulbar + membranous + prostatic = <strong>{totalUrethralLength.toFixed(1)} cm</strong>
+      </div>
 
       <SliderControl
         label="Prostate Volume"
@@ -82,6 +126,19 @@ export function SimulationControlsPanel({
         step="1"
         onChange={(e) => onInputChange('mesh_resolution', Number(e.target.value))}
       />
+
+      <div className="toggle-group">
+        <ToggleControl
+          label="Show Bladder Phantom"
+          checked={inputs.showBladderPhantom}
+          onChange={(e) => onInputChange('showBladderPhantom', e.target.checked)}
+        />
+        <ToggleControl
+          label="Show Prostate Phantom"
+          checked={inputs.showProstatePhantom}
+          onChange={(e) => onInputChange('showProstatePhantom', e.target.checked)}
+        />
+      </div>
 
       <div className="button-row">
         <button className="btn btn-primary" onClick={onRunScalar} disabled={loading}>

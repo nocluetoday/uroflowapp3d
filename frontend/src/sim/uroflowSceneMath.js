@@ -2,26 +2,32 @@ function clamp(value, min, max) {
   return Math.min(max, Math.max(min, value));
 }
 
-function radiusSampler(baseRadius, narrowing) {
+function radiusSampler(baseRadius, narrowing, centerT) {
   return (t) => {
-    const notch = Math.exp(-((t - 0.52) ** 2) / 0.02);
+    const notch = Math.exp(-((t - centerT) ** 2) / 0.02);
     const radius = baseRadius * (1 - narrowing * notch);
     return Math.max(0.06, radius);
   };
 }
 
-export function buildFlowProfile(length, volume, ippGrade, qMax) {
-  const lengthCm = Math.max(2, Number(length));
-  const worldLength = 7 + (lengthCm - 4) * 0.45;
+export function buildFlowProfile(totalLengthCm, prostaticLengthCm, volume, ippGrade, qMax) {
+  const lengthCm = Math.max(6, Number(totalLengthCm));
+  const prostaticCm = clamp(Number(prostaticLengthCm) || 3.5, 1.5, lengthCm * 0.6);
+
+  const worldLength = clamp(lengthCm * 0.22, 4.5, 11.8);
   const volumeFactor = clamp(Number(volume) / 40, 0.45, 1.5);
   const ippFactor = Number(ippGrade) / 3;
   const qFactor = clamp(((qMax ?? 12) + 2) / 20, 0.35, 1.4);
 
-  const baseRadius = 0.27 * qFactor;
-  const narrowing = Math.min(0.62, 0.16 + 0.22 * ippFactor + 0.16 * (volumeFactor - 1));
-  const radiusAt = radiusSampler(baseRadius, narrowing);
+  const prostaticFraction = clamp(prostaticCm / lengthCm, 0.08, 0.35);
+  const prostaticWorldLength = worldLength * prostaticFraction;
+  const prostateCenterT = clamp(prostaticFraction * 0.75, 0.08, 0.42);
 
-  const segments = 22;
+  const baseRadius = 0.26 * qFactor;
+  const narrowing = Math.min(0.62, 0.16 + 0.22 * ippFactor + 0.16 * (volumeFactor - 1));
+  const radiusAt = radiusSampler(baseRadius, narrowing, prostateCenterT);
+
+  const segments = 24;
   const segLength = worldLength / segments;
   const rows = [];
   for (let i = 0; i < segments; i += 1) {
@@ -37,6 +43,8 @@ export function buildFlowProfile(length, volume, ippGrade, qMax) {
 
   return {
     worldLength,
+    prostaticWorldLength,
+    prostateCenterX: -worldLength / 2 + prostateCenterT * worldLength,
     radiusAt,
     rows,
   };

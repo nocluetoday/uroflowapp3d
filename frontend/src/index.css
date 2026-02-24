@@ -71,7 +71,7 @@ body {
 
 .topbar {
   display: flex;
-  justify-content: space-between;
+  justify-content: flex-start;
   gap: 1rem;
   align-items: center;
   margin-bottom: 1rem;
@@ -184,6 +184,41 @@ input[type='range']::-webkit-slider-thumb {
   display: grid;
   gap: 0.65rem;
   margin-top: 1rem;
+}
+
+.anatomy-summary {
+  margin: 0.85rem 0 0.4rem;
+  padding: 0.6rem 0.7rem;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  color: var(--muted);
+  font-size: 0.85rem;
+  background: rgba(18, 38, 51, 0.65);
+}
+
+.anatomy-summary strong {
+  color: var(--text);
+}
+
+.toggle-group {
+  margin-top: 0.75rem;
+  padding-top: 0.4rem;
+  display: grid;
+  gap: 0.45rem;
+}
+
+.toggle-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  color: var(--muted);
+  font-size: 0.92rem;
+}
+
+.toggle-row input[type='checkbox'] {
+  width: 17px;
+  height: 17px;
+  accent-color: var(--accent);
 }
 
 .btn {

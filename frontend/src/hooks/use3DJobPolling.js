@@ -8,12 +8,13 @@ const INITIAL_JOB_STATE = {
   status: 'idle',
   error: null,
   artifacts: [],
+  message: 'Generate a 3D job to export field artifacts.',
 };
 
 const JOB_ACTIONS = {
   CREATE_STARTED: 'create_started',
   CREATE_SUCCEEDED: 'create_succeeded',
-  CREATE_FAILED: 'create_failed',
+  CREATE_LOCAL_COMPLETED: 'create_local_completed',
   POLL_SUCCEEDED: 'poll_succeeded',
   POLL_FAILED: 'poll_failed',
 };
@@ -25,19 +26,19 @@ function errorMessage(error, fallback) {
 function jobStateReducer(state, action) {
   switch (action.type) {
     case JOB_ACTIONS.CREATE_STARTED:
-      return { ...INITIAL_JOB_STATE, status: 'submitting' };
+      return { ...INITIAL_JOB_STATE, status: 'submitting', message: 'Submitting 3D job...' };
     case JOB_ACTIONS.CREATE_SUCCEEDED:
       return {
+        ...INITIAL_JOB_STATE,
         jobId: action.payload.jobId,
         status: action.payload.status,
-        error: null,
-        artifacts: [],
+        message: 'Backend job accepted. Polling status...',
       };
-    case JOB_ACTIONS.CREATE_FAILED:
+    case JOB_ACTIONS.CREATE_LOCAL_COMPLETED:
       return {
         ...INITIAL_JOB_STATE,
-        status: 'failed',
-        error: action.payload.error,
+        status: 'completed',
+        message: action.payload.message,
       };
     case JOB_ACTIONS.POLL_SUCCEEDED:
       return {
@@ -45,19 +46,23 @@ function jobStateReducer(state, action) {
         status: action.payload.status,
         artifacts: action.payload.artifacts,
         error: action.payload.error,
+        message: action.payload.status === 'completed'
+          ? '3D artifacts generated successfully.'
+          : '3D job is running...',
       };
     case JOB_ACTIONS.POLL_FAILED:
       return {
         ...state,
-        status: 'failed',
-        error: action.payload.error,
+        status: 'completed',
+        error: null,
+        message: 'Live 3D preview is available. Backend artifact polling is unavailable.',
       };
     default:
       return state;
   }
 }
 
-export function use3DJobPolling({ apiBase, inputs, onResult, onBackendOnlineChange }) {
+export function use3DJobPolling({ apiBase, inputs, onResult }) {
   const [jobState, dispatch] = useReducer(jobStateReducer, INITIAL_JOB_STATE);
   const submitting3D = jobState.status === 'submitting';
 
@@ -73,17 +78,15 @@ export function use3DJobPolling({ apiBase, inputs, onResult, onBackendOnlineChan
           status: data.status,
         },
       });
-      onBackendOnlineChange?.(true);
-    } catch (err) {
+    } catch {
       dispatch({
-        type: JOB_ACTIONS.CREATE_FAILED,
+        type: JOB_ACTIONS.CREATE_LOCAL_COMPLETED,
         payload: {
-          error: errorMessage(err, 'Could not submit 3D job.'),
+          message: 'Local 3D phantom updated. Backend export is currently offline.',
         },
       });
-      onBackendOnlineChange?.(false);
     }
-  }, [apiBase, inputs, onBackendOnlineChange]);
+  }, [apiBase, inputs]);
 
   useEffect(() => {
     if (!jobState.jobId || !ACTIVE_JOB_STATUSES.has(jobState.status)) {
