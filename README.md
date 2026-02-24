@@ -79,36 +79,160 @@ Implemented in:
 - `simulation.py`
 - `frontend/src/sim/uroflowModel.js`
 
-### Geometry proxies and ratios
+### Mathematical Definition (Exact Current Code Logic)
 
-- `TD-BN` = transverse diameter of bladder neck (cm)
-- `TD-PU` = transverse diameter of prostatic urethra (cm)
-- `LD-PU` = longitudinal (prostatic urethral) length (cm)
+The model is a deterministic scalar mapping from input sliders to flow/geometry outputs.
 
-Defined ratios:
-- `RPU-1 = TD-PU / TD-BN`
-- `RPU-2 = RPU-1 / LD-PU`
+Notation:
+- `clamp(x, lo, hi) = max(lo, min(hi, x))`
+- pressure in `cmH2O` unless stated otherwise
+- lengths in `cm`
+- volume in `cc`
 
-### Obstruction behavior
+#### 1) Input normalization
 
-Model resistance increases with:
-- longer `LD-PU`
-- higher `IPP grade`
-- larger prostate volume
-- higher vortex index (ratio-derived)
+```text
+p_det   = max(0, p_det)
+length  = max(0.1, length)
+volume  = max(0.1, volume)
+IPP     = clamp(round(ipp_grade), 1, 3)
+```
 
-This resistance index then reduces `Q_max` and `Q_ave`.
+If `prostatic_length` is explicitly provided by UI:
 
-### Primary outputs
+```text
+LD_PU = clamp(prostatic_length, 2.0, 6.0)
+```
 
-- `q_max` (mL/s)
-- `q_ave` (mL/s)
-- `average_velocity` (cm/s, internal rendering proxy)
-- `rpu_1`, `rpu_2`
-- `mv_euo` (m/s)
+Otherwise:
+
+```text
+LD_PU = clamp(0.16 * length, 2.0, 6.0)
+```
+
+#### 2) Geometry proxy equations
+
+```text
+TD_BN = clamp(3.1 - 0.18*(IPP - 1) - 0.0035*(volume - 40.0), 2.2, 3.4)
+
+TD_PU = clamp(
+  4.4
+  - 0.42*(IPP - 1)
+  - 0.20*(LD_PU - 3.8)
+  - 0.012*(volume - 40.0),
+  1.4,
+  4.8
+)
+```
+
+Ratio definitions:
+
+```text
+RPU_1 = TD_PU / TD_BN
+RPU_2 = RPU_1 / LD_PU
+```
+
+#### 3) Vortex index and binary vortex flag
+
+```text
+RPU1_norm = clamp((RPU_1 - 0.79) / (1.36 - 0.79), 0.0, 1.0)
+RPU2_norm = clamp((RPU_2 - 0.02) / (0.038 - 0.02), 0.0, 1.0)
+vortex_index = 0.5 * (RPU1_norm + RPU2_norm)
+vortex_present = (RPU_1 > 0.79) and (RPU_2 > 0.02)
+```
+
+`vortex_index` is continuous in `[0, 1]` and is used to modulate losses.
+
+#### 4) Pressure drive and obstruction/resistance
+
+Pressure conversion:
+
+```text
+pressure_drive_pa = max(300.0, p_det * 98.0665)
+```
+
+Obstruction factors:
+
+```text
+length_obstruction = (LD_PU / 3.8)^1.7
+ipp_obstruction    = 1.0 + 0.65*(IPP - 1)
+volume_obstruction = (volume / 40.0)^0.6
+```
+
+Combined resistance:
+
+```text
+resistance_index =
+  length_obstruction
+  * ipp_obstruction
+  * volume_obstruction
+  * (1.0 + 0.45*vortex_index)
+```
+
+This is the main mechanism that increases obstruction with longer prostatic urethra and higher IPP.
+
+#### 5) Flow and velocity outputs
+
+Target midpoint external orifice velocity:
+
+```text
+MV_EUO_target = clamp(3.16 - 0.08*vortex_index, 2.8, 3.18)   [m/s]
+MV_EUO = MV_EUO_target
+         * sqrt(pressure_drive_pa / (50.6 * 98.0665))
+         / sqrt(resistance_index)
+```
+
+Maximum flow:
+
+```text
+base_qmax = 24.0 * sqrt(pressure_drive_pa / (50.6 * 98.0665))
+q_max_raw = base_qmax / (resistance_index^0.9) * (1.02 - 0.12*vortex_index)
+Q_max = clamp(q_max_raw, 2.0, 45.0)                            [mL/s]
+```
+
+Average flow:
+
+```text
+qave_ratio = clamp(0.76 - 0.14*vortex_index - 0.05*(IPP - 1), 0.45, 0.78)
+Q_ave = Q_max * qave_ratio                                     [mL/s]
+```
+
+Internal scene velocity proxy (used for particle animation):
+
+```text
+EUO_diameter_cm = 0.6
+EUO_area_cm2 = pi * (EUO_diameter_cm / 2)^2
+average_velocity = Q_ave / EUO_area_cm2                        [cm/s]
+```
+
+Estimated pressure loss:
+
+```text
+pressure_loss = pressure_drive_pa * (1 - 1/(1 + resistance_index))   [Pa]
+```
+
+#### 6) Output dictionary
+
+Returned keys and units:
+- `q_max` (`mL/s`)
+- `q_ave` (`mL/s`)
+- `average_velocity` (`cm/s`) - animation proxy, not primary clinical endpoint
+- `p_det_used` (`cmH2O`)
+- `rpu_1` (dimensionless)
+- `rpu_2` (`1/cm`)
+- `mv_euo` (`m/s`)
 - `vortex_present` (boolean)
-- `td_bn`, `td_pu`, `ld_pu` (cm)
-- `pressure_loss` (Pa)
+- `td_bn` (`cm`)
+- `td_pu` (`cm`)
+- `ld_pu` (`cm`)
+- `pressure_loss` (`Pa`)
+
+#### 7) Interpretation of model behavior
+
+- Increasing `LD_PU` increases `length_obstruction`, increasing `resistance_index`, reducing `Q_max` and `Q_ave`.
+- Increasing `IPP` increases both geometric narrowing and `ipp_obstruction`, reducing `Q_max` and `Q_ave`.
+- Increasing `volume` generally increases obstruction through both geometry terms and `volume_obstruction`.
+- Increasing `p_det` increases pressure drive and can partially compensate obstruction, but clamp limits still apply.
 
 ## Literature Basis (Informing, Not Clinical Validation)
 
