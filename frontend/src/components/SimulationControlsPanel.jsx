@@ -33,9 +33,7 @@ export function SimulationControlsPanel({
   totalUrethralLength,
   onInputChange,
   onRunScalar,
-  onCreate3DJob,
   loading,
-  submitting3D,
   band,
   error,
 }) {
@@ -122,16 +120,6 @@ export function SimulationControlsPanel({
         Auto IPP Grade = <strong>{derivedIppGrade}</strong> (0: 0 mm, 1: &gt;0 to &lt;5 mm, 2: 5-10 mm, 3: &gt;10 mm)
       </div>
 
-      <SliderControl
-        label="3D Mesh Resolution"
-        valueLabel={inputs.mesh_resolution}
-        value={inputs.mesh_resolution}
-        min="12"
-        max="64"
-        step="1"
-        onChange={(e) => onInputChange('mesh_resolution', Number(e.target.value))}
-      />
-
       <div className="toggle-group">
         <ToggleControl
           label="Show Bladder Phantom"
@@ -148,9 +136,6 @@ export function SimulationControlsPanel({
       <div className="button-row">
         <button className="btn btn-primary" onClick={onRunScalar} disabled={loading}>
           {loading ? 'Running...' : 'Run Scalar Simulation'}
-        </button>
-        <button className="btn btn-secondary" onClick={onCreate3DJob} disabled={submitting3D}>
-          {submitting3D ? 'Submitting...' : 'Generate 3D Field Job'}
         </button>
       </div>
 

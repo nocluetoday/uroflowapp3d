@@ -350,40 +350,6 @@ input[type='range']::-webkit-slider-thumb {
   color: var(--text);
 }
 
-.artifacts {
-  border: 1px solid var(--line);
-  border-radius: 12px;
-  padding: 0.9rem;
-  background: rgba(8, 18, 24, 0.9);
-}
-
-.artifacts-title {
-  margin: 0 0 0.55rem;
-  font-weight: 700;
-}
-
-.artifacts ul {
-  margin: 0;
-  padding: 0 0 0 1rem;
-}
-
-.artifacts a {
-  color: #8ee7ff;
-  text-decoration: none;
-  font-family: 'IBM Plex Mono', monospace;
-  font-size: 0.85rem;
-}
-
-.artifacts a:hover {
-  text-decoration: underline;
-}
-
-.muted {
-  margin: 0;
-  color: var(--muted);
-  font-size: 0.92rem;
-}
-
 .error-text {
   margin: 0.8rem 0 0;
   color: #ff8c80;

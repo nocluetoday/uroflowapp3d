@@ -2,12 +2,9 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { SimulationControlsPanel } from './components/SimulationControlsPanel';
 import { SimulationOutputPanel } from './components/SimulationOutputPanel';
 import { TopBar } from './components/TopBar';
-import { use3DJobPolling } from './hooks/use3DJobPolling';
 import { useScalarSimulation } from './hooks/useScalarSimulation';
 import { ippGradeFromMm, totalUrethralLengthCm } from './sim/uroflowModel';
 import './index.css';
-
-const API_BASE = 'http://127.0.0.1:8000';
 
 const DEFAULT_INPUTS = {
   p_det: 50,
@@ -17,7 +14,6 @@ const DEFAULT_INPUTS = {
   prostatic_length: 3.5,
   volume: 40,
   ipp_mm: 5.0,
-  mesh_resolution: 28,
   showBladderPhantom: true,
   showProstatePhantom: true,
 };
@@ -44,15 +40,7 @@ function App() {
     [inputs, ippGrade, totalUrethralLength],
   );
 
-  const { loading, results, error, runSimulation, applyResult } = useScalarSimulation({
-    apiBase: API_BASE,
-  });
-
-  const { jobState, submitting3D, create3DJob } = use3DJobPolling({
-    apiBase: API_BASE,
-    inputs: scalarPayload,
-    onResult: applyResult,
-  });
+  const { loading, results, error, runSimulation } = useScalarSimulation();
 
   const band = useMemo(() => flowBand(results?.q_max ?? null), [results]);
 
@@ -82,18 +70,14 @@ function App() {
           totalUrethralLength={totalUrethralLength}
           onInputChange={updateInput}
           onRunScalar={runCurrentSimulation}
-          onCreate3DJob={create3DJob}
           loading={loading}
-          submitting3D={submitting3D}
           band={band}
           error={error}
         />
         <SimulationOutputPanel
-          apiBase={API_BASE}
           inputs={scalarPayload}
           totalUrethralLength={totalUrethralLength}
           results={results}
-          jobState={jobState}
         />
       </main>
     </div>

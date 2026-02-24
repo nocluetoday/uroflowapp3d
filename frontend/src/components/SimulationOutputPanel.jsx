@@ -8,7 +8,7 @@ function wholeMetric(value) {
   return Number.isFinite(Number(value)) ? String(Math.round(Number(value))) : '--';
 }
 
-export function SimulationOutputPanel({ apiBase, inputs, totalUrethralLength, results, jobState }) {
+export function SimulationOutputPanel({ inputs, totalUrethralLength, results }) {
   return (
     <section className="panel output-panel">
       <div className="metrics-grid">
@@ -23,10 +23,6 @@ export function SimulationOutputPanel({ apiBase, inputs, totalUrethralLength, re
           <h3>
             {metric(results?.q_ave)} <span>mL/s</span>
           </h3>
-        </article>
-        <article>
-          <p>3D Job Status</p>
-          <h3 className="mono">{jobState.status}</h3>
         </article>
         <article>
           <p>RPU-1</p>
@@ -67,23 +63,6 @@ export function SimulationOutputPanel({ apiBase, inputs, totalUrethralLength, re
 
       <div className="scene-stage">
         <UroflowScene inputs={inputs} totalUrethralLength={totalUrethralLength} results={results} />
-      </div>
-
-      <div className="artifacts">
-        <p className="artifacts-title">3D Artifacts</p>
-        <p className="muted">{jobState.message}</p>
-        {jobState.error ? <p className="error-text">{jobState.error}</p> : null}
-        {jobState.artifacts.length > 0 ? (
-          <ul>
-            {jobState.artifacts.map((url) => (
-              <li key={url}>
-                <a href={`${apiBase}${url}`} target="_blank" rel="noreferrer">
-                  {url}
-                </a>
-              </li>
-            ))}
-          </ul>
-        ) : null}
       </div>
     </section>
   );

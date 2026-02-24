@@ -10,8 +10,10 @@
     "build:web": "npm run build",
     "dev:desktop": "concurrently -k \"npm run dev -- --host 127.0.0.1 --port 5173\" \"wait-on tcp:5173 && ELECTRON_RENDERER_URL=http://127.0.0.1:5173 electron .\"",
     "build:backend:mac": "bash ../scripts/build_backend_binary.sh",
-    "package:mac": "npm run build:web && npm run build:backend:mac && electron-builder --mac dmg",
-    "package:app:mac": "npm run build:web && npm run build:backend:mac && electron-packager . UroFlow --platform=darwin --arch=arm64 --overwrite --out=release --prune=true --extra-resource=backend-bin/uroflow-backend",
+    "package:mac": "npm run build:web && electron-builder --mac dmg",
+    "package:app:mac": "npm run build:web && electron-packager . UroFlow --platform=darwin --arch=arm64 --overwrite --out=release --prune=true",
+    "package:mac:with-backend": "npm run build:web && npm run build:backend:mac && electron-builder --mac dmg",
+    "package:app:mac:with-backend": "npm run build:web && npm run build:backend:mac && electron-packager . UroFlow --platform=darwin --arch=arm64 --overwrite --out=release --prune=true --extra-resource=backend-bin/uroflow-backend",
     "zip:app:mac": "bash -lc 'APP_DIR=\"release/UroFlow-darwin-arm64/UroFlow.app\"; OUT=\"release/UroFlow-darwin-arm64/UroFlow.app.zip\"; [ -d \"$APP_DIR\" ] || { echo \"Missing $APP_DIR\"; exit 1; }; ditto -c -k --sequesterRsrc --keepParent \"$APP_DIR\" \"$OUT\"; echo \"Created $OUT\"'",
     "lint": "eslint .",
     "preview": "vite preview"
@@ -47,12 +49,6 @@
       "dist/**/*",
       "electron/**/*",
       "package.json"
-    ],
-    "extraResources": [
-      {
-        "from": "backend-bin/uroflow-backend",
-        "to": "backend/uroflow-backend"
-      }
     ],
     "mac": {
       "target": [

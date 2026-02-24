@@ -1,8 +1,7 @@
 import { useCallback, useState } from 'react';
-import { simulate } from '../api';
 import { runLocalSimulation } from '../sim/uroflowModel';
 
-export function useScalarSimulation({ apiBase }) {
+export function useScalarSimulation() {
   const [loading, setLoading] = useState(false);
   const [results, setResults] = useState(null);
   const [error, setError] = useState(null);
@@ -14,27 +13,6 @@ export function useScalarSimulation({ apiBase }) {
     const localResult = runLocalSimulation(payload);
     setResults(localResult);
     setLoading(false);
-
-    // Try backend sync opportunistically for parity with packaged binary output.
-    void simulate(apiBase, payload)
-      .then((backendResult) => {
-        if (backendResult && Number.isFinite(Number(backendResult.q_max))) {
-          setResults((previous) => ({
-            ...(previous || {}),
-            ...backendResult,
-          }));
-        }
-      })
-      .catch(() => {
-        // Ignore backend network errors in desktop mode; local model remains authoritative.
-      });
-  }, [apiBase]);
-
-  const applyResult = useCallback((nextResult) => {
-    if (!nextResult) {
-      return;
-    }
-    setResults(nextResult);
   }, []);
 
   return {
@@ -42,6 +20,5 @@ export function useScalarSimulation({ apiBase }) {
     results,
     error,
     runSimulation,
-    applyResult,
   };
 }
