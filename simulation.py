@@ -20,6 +20,19 @@ def ipp_grade_from_mm(ipp_mm: Optional[float]) -> int:
     return 3
 
 
+def ipp_severity_from_mm(ipp_mm: float) -> float:
+    """
+    Continuous IPP effect variable used by the scalar model.
+    Maps:
+    - 0 mm -> -1.0 (least obstructive)
+    - 5 mm -> 0.0
+    - 10 mm -> 1.0
+    - 15+ mm -> 2.0 (saturating)
+    """
+    ipp_mm = clamp(float(ipp_mm), 0.0, 20.0)
+    return clamp((ipp_mm / 5.0) - 1.0, -1.0, 2.0)
+
+
 def run_simulation(
     p_det: float,
     length: float,
@@ -53,6 +66,7 @@ def run_simulation(
     else:
         ipp_grade = int(clamp(float(ipp_grade), 0.0, 3.0))
         ipp_mm = {0: 0.0, 1: 2.5, 2: 7.5, 3: 12.5}[ipp_grade]
+    ipp_severity = ipp_severity_from_mm(ipp_mm)
 
     # Use explicit prostatic urethral length when provided by UI.
     if prostatic_length is None:
@@ -62,9 +76,9 @@ def run_simulation(
 
     # Geometry proxies consistent with post-surgery PU parameter ranges.
     # Stronger IPP and longer LD-PU deliberately produce larger obstruction.
-    td_bn_cm = clamp(3.1 - 0.18 * (ipp_grade - 1) - 0.0035 * (volume - 40.0), 2.2, 3.4)
+    td_bn_cm = clamp(3.1 - 0.18 * ipp_severity - 0.0035 * (volume - 40.0), 2.2, 3.4)
     td_pu_cm = clamp(
-        4.4 - 0.42 * (ipp_grade - 1) - 0.20 * (ld_pu_cm - 3.8) - 0.012 * (volume - 40.0),
+        4.4 - 0.42 * ipp_severity - 0.20 * (ld_pu_cm - 3.8) - 0.012 * (volume - 40.0),
         1.4,
         4.8,
     )
@@ -82,7 +96,7 @@ def run_simulation(
     # This intentionally enforces stronger obstruction with higher IPP and longer LD-PU.
     pressure_drive_pa = max(300.0, p_det * 98.0665)  # cmH2O to Pa
     length_obstruction = (ld_pu_cm / 3.8) ** 1.7
-    ipp_obstruction = 1.0 + 0.65 * (ipp_grade - 1)
+    ipp_obstruction = 1.0 + 0.65 * ipp_severity
     volume_obstruction = (volume / 40.0) ** 0.6
     resistance_index = length_obstruction * ipp_obstruction * volume_obstruction * (1.0 + 0.45 * vortex_index)
 
@@ -95,7 +109,7 @@ def run_simulation(
     q_max = base_qmax / (resistance_index ** 0.9) * (1.02 - 0.12 * vortex_index)
     q_max = clamp(q_max, 2.0, 45.0)
 
-    qave_ratio = clamp(0.76 - 0.14 * vortex_index - 0.05 * (ipp_grade - 1), 0.45, 0.78)
+    qave_ratio = clamp(0.76 - 0.14 * vortex_index - 0.05 * ipp_severity, 0.45, 0.78)
     q_ave = q_max * qave_ratio
 
     # Keep an internal velocity proxy (cm/s) for scene particle animation.

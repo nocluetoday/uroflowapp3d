@@ -14,8 +14,8 @@ function FlowModel({ inputs, totalUrethralLength, results }) {
   const particleRefs = useRef([]);
 
   const profile = useMemo(
-    () => buildFlowProfile(totalUrethralLength, inputs.prostatic_length, inputs.volume, inputs.ipp_grade, results?.q_max),
-    [inputs.ipp_grade, inputs.prostatic_length, inputs.volume, results?.q_max, totalUrethralLength],
+    () => buildFlowProfile(totalUrethralLength, inputs.prostatic_length, inputs.volume, inputs.ipp_mm, results?.q_max),
+    [inputs.ipp_mm, inputs.prostatic_length, inputs.volume, results?.q_max, totalUrethralLength],
   );
 
   const seeds = useMemo(() => createParticleSeeds(36), []);

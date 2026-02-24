@@ -29,6 +29,11 @@ export function ippGradeFromMm(ippMmValue) {
   return 3;
 }
 
+export function ippSeverityFromMm(ippMmValue) {
+  const ippMm = clamp(asNumber(ippMmValue, 0), 0, 20);
+  return clamp((ippMm / 5) - 1, -1, 2);
+}
+
 export function totalUrethralLengthCm(inputs) {
   if (inputs && Number.isFinite(Number(inputs.length))) {
     return Math.max(0.1, Number(inputs.length));
@@ -47,13 +52,14 @@ export function runLocalSimulation(payload) {
   const volume = Math.max(0.1, asNumber(payload?.volume, 0));
   const ippMm = Math.max(0, asNumber(payload?.ipp_mm, 0));
   const ippGrade = ippGradeFromMm(ippMm);
+  const ippSeverity = ippSeverityFromMm(ippMm);
 
   const prostaticLength = asNumber(payload?.prostatic_length, 0);
   const ldPuCm = prostaticLength > 0 ? clamp(prostaticLength, 2.0, 6.0) : clamp(0.16 * totalLength, 2.0, 6.0);
 
-  const tdBnCm = clamp(3.1 - 0.18 * (ippGrade - 1) - 0.0035 * (volume - 40.0), 2.2, 3.4);
+  const tdBnCm = clamp(3.1 - 0.18 * ippSeverity - 0.0035 * (volume - 40.0), 2.2, 3.4);
   const tdPuCm = clamp(
-    4.4 - 0.42 * (ippGrade - 1) - 0.2 * (ldPuCm - 3.8) - 0.012 * (volume - 40.0),
+    4.4 - 0.42 * ippSeverity - 0.2 * (ldPuCm - 3.8) - 0.012 * (volume - 40.0),
     1.4,
     4.8,
   );
@@ -68,7 +74,7 @@ export function runLocalSimulation(payload) {
 
   const pressureDrivePa = Math.max(300.0, pDet * 98.0665);
   const lengthObstruction = (ldPuCm / 3.8) ** 1.7;
-  const ippObstruction = 1.0 + 0.65 * (ippGrade - 1);
+  const ippObstruction = 1.0 + 0.65 * ippSeverity;
   const volumeObstruction = (volume / 40.0) ** 0.6;
   const resistanceIndex = lengthObstruction * ippObstruction * volumeObstruction * (1.0 + 0.45 * vortexIndex);
 
@@ -79,7 +85,7 @@ export function runLocalSimulation(payload) {
   let qMax = (baseQmax / (resistanceIndex ** 0.9)) * (1.02 - 0.12 * vortexIndex);
   qMax = clamp(qMax, 2.0, 45.0);
 
-  const qaveRatio = clamp(0.76 - 0.14 * vortexIndex - 0.05 * (ippGrade - 1), 0.45, 0.78);
+  const qaveRatio = clamp(0.76 - 0.14 * vortexIndex - 0.05 * ippSeverity, 0.45, 0.78);
   const qAve = qMax * qaveRatio;
 
   const euoDiameterCm = 0.6;

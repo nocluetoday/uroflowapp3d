@@ -10,13 +10,15 @@ function radiusSampler(baseRadius, narrowing, centerT) {
   };
 }
 
-export function buildFlowProfile(totalLengthCm, prostaticLengthCm, volume, ippGrade, qMax) {
+export function buildFlowProfile(totalLengthCm, prostaticLengthCm, volume, ippMm, qMax) {
   const lengthCm = Math.max(6, Number(totalLengthCm));
   const prostaticCm = clamp(Number(prostaticLengthCm) || 3.5, 1.5, lengthCm * 0.6);
 
   const worldLength = clamp(lengthCm * 0.22, 4.5, 11.8);
   const volumeFactor = clamp(Number(volume) / 40, 0.45, 1.5);
-  const ippFactor = Number(ippGrade) / 3;
+  const ippMmClamped = clamp(Number(ippMm) || 0, 0, 20);
+  const ippSeverity = clamp((ippMmClamped / 5) - 1, -1, 2);
+  const ippFactor = clamp((ippSeverity + 1) / 3, 0, 1);
   const qFactor = clamp(((qMax ?? 12) + 2) / 20, 0.35, 1.4);
 
   const prostaticFraction = clamp(prostaticCm / lengthCm, 0.08, 0.35);

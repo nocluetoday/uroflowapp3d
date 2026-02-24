@@ -87,6 +87,7 @@ IPP     = 0 if IPP_mm == 0
           1 if 0 < IPP_mm < 5
           2 if 5 <= IPP_mm <= 10
           3 if IPP_mm > 10
+IPP_severity = clamp((IPP_mm / 5) - 1, -1, 2)
 ```
 
 If `prostatic_length` is explicitly provided by UI:
@@ -104,11 +105,11 @@ LD_PU = clamp(0.16 * length, 2.0, 6.0)
 #### 2) Geometry proxy equations
 
 ```text
-TD_BN = clamp(3.1 - 0.18*(IPP - 1) - 0.0035*(volume - 40.0), 2.2, 3.4)
+TD_BN = clamp(3.1 - 0.18*IPP_severity - 0.0035*(volume - 40.0), 2.2, 3.4)
 
 TD_PU = clamp(
   4.4
-  - 0.42*(IPP - 1)
+  - 0.42*IPP_severity
   - 0.20*(LD_PU - 3.8)
   - 0.012*(volume - 40.0),
   1.4,
@@ -146,7 +147,7 @@ Obstruction factors:
 
 ```text
 length_obstruction = (LD_PU / 3.8)^1.7
-ipp_obstruction    = 1.0 + 0.65*(IPP - 1)
+ipp_obstruction    = 1.0 + 0.65*IPP_severity
 volume_obstruction = (volume / 40.0)^0.6
 ```
 
@@ -184,7 +185,7 @@ Q_max = clamp(q_max_raw, 2.0, 45.0)                            [mL/s]
 Average flow:
 
 ```text
-qave_ratio = clamp(0.76 - 0.14*vortex_index - 0.05*(IPP - 1), 0.45, 0.78)
+qave_ratio = clamp(0.76 - 0.14*vortex_index - 0.05*IPP_severity, 0.45, 0.78)
 Q_ave = Q_max * qave_ratio                                     [mL/s]
 ```
 
